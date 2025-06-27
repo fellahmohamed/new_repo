@@ -1,0 +1,34 @@
+1 _ prerequisites :
+  - check minikube 
+  	minikube version
+  - check kubectl 
+  	kubectl version --client
+  - check docker 
+  	docker --version
+2 _ start :
+  
+  - start Minikube 
+  	 minikube start --cpus=4 --memory=8192 --addons=metrics-server
+  
+  - check minikube status
+  	minikube status
+3 _ clone and deploy :
+
+	git clone https://github.com/GoogleCloudPlatform/microservices-demo.git
+	cd microservices-demo
+  - go to the kube manifests :
+  	cd ./release
+  
+  - apply the deployements
+  	kubectl apply -f kubernetes-manifests.yaml
+
+  - Verify pods 
+        kubectl get pods 
+	 --watch to see change
+	 	
+  -(optional) kubernetes dashboard:
+  	minikube dashboard
+  	
+4 _ grafana :
+	minikube service promstack-grafana -n monitoring
+
