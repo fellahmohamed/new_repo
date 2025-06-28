@@ -1,0 +1,10 @@
+=== RUN SUMMARY ===
+Test: load_test_20250628_050326
+Duration: 30 seconds
+Collection completed at: Sat Jun 28 05:03:59 AM CET 2025
+
+=== RESOURCE UTILIZATION SUMMARY ===
+Average CPU Usage: 3.50%
+Average Memory Usage: 5.92%
+Average CPU Idle: 96.50%
+Average Memory Idle: 94.08%

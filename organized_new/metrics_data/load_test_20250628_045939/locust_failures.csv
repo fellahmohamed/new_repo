@@ -1,0 +1,9 @@
+Method,Name,Error,Occurrences
+GET,/product/1YMWWN1N4O,HTTPError('500 Server Error: Internal Server Error for url: /product/1YMWWN1N4O'),165
+GET,product_details,CatchResponseError('Product details failed with status 500'),180
+GET,homepage,CatchResponseError('Homepage failed with status 500'),424
+GET,browse_products,CatchResponseError('Product browsing failed with status 500'),555
+GET,/,HTTPError('500 Server Error: Internal Server Error for url: /'),591
+GET,/product/0PUK6V6EV0,HTTPError('500 Server Error: Internal Server Error for url: /product/0PUK6V6EV0'),187
+GET,/cart,HTTPError('500 Server Error: Internal Server Error for url: /cart'),510
+GET,/product/2ZYFJ3GM2N,HTTPError('500 Server Error: Internal Server Error for url: /product/2ZYFJ3GM2N'),175

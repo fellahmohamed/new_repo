@@ -1,0 +1,4 @@
+timestamp,total_pods,total_cpu_used_millicores,total_memory_used_mb,node_cpu_usage_percent,node_memory_usage_percent,cluster_cpu_requests_percent,cluster_memory_requests_percent,node_cpu_allocatable_cores,node_memory_allocatable_gb,cluster_total_cpu_usage_cores,cluster_total_memory_usage_gb
+2025-06-28 03:38:09,12,132,945,5,10,0,0,0,0,.132,.922
+2025-06-28 03:38:20,12,132,945,5,10,0,0,0,0,.132,.922
+2025-06-28 03:38:30,12,132,945,5,10,0,0,0,0,.132,.922

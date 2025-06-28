@@ -32,3 +32,31 @@
 4 _ grafana :
 	minikube service promstack-grafana -n monitoring
 
+ 1. Apply HPA config
+kubectl apply -f hpa-config.yaml
+
+ 2. Run high-load test
+locust -f enhanced_locust.py --host=http://192.168.49.2:30234 --users 100 --spawn-rate 5 --run-time 5m --headless (remember to verify the url minikube service frontend --url)
+
+3 monitor the hpa (pods created):
+watch -n 5 'kubectl get hpa'
+
+4 monitor specific pods :
+watch -n 5 'kubectl get pods | grep frontend'
+
+# Manually scale down (for testing purposes)
+kubectl scale deployment frontend --replicas=1
+kubectl scale deployment recommendationservice --replicas=1
+
+# Check current HPA status and history
+kubectl describe hpa frontend-hpa
+kubectl describe hpa recommendationservice-hpa
+
+
+
+----------------------------------------
+Metrics collection :
+ - collect_metrics.sh (script for collecting metrics in csv format)
+		chmod +x collect_metrics.sh
+		./collect_metrics.sh "test_collection" 30
+

@@ -1,0 +1,11 @@
+{
+  "test_name": "test_collection",
+  "timestamp": "2025-06-28 05:31:39",
+  "metrics": {
+    "hpa_max_frontend_pods": "4",
+    "hpa_min_frontend_pods": "1",
+    "hpa_avg_frontend_pods": 2.0,
+    "scale_up_events": "2",
+    "scale_down_events": "0"
+  }
+}

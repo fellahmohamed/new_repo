@@ -1,0 +1,23 @@
+=== LOAD TEST SUMMARY ===
+Test Name: load_test_20250628_050326
+Date: Sat Jun 28 05:04:00 AM CET 2025
+Duration: 30s (30 seconds)
+Users: 100
+Spawn Rate: 2
+Host: http://192.168.49.2:31858
+Locust Exit Code: 0
+
+=== FILES GENERATED ===
+- basic_metrics.csv: Resource usage and idle percentages
+- hpa_metrics.csv: HPA scaling metrics
+- pod_metrics.csv: Individual pod metrics
+- locust_stats.csv: Locust request statistics
+- locust_failures.csv: Locust failure statistics
+- locust_report.html: Locust HTML report
+- summary.txt: Basic metrics summary
+- test_summary.txt: This file
+
+=== QUICK ANALYSIS ===
+Resource Utilization:
+CPU Usage - Min: 3.50%, Max: 3.50%, Avg: 3.50%
+Memory Usage - Min: 5.92%, Max: 5.92%, Avg: 5.92%

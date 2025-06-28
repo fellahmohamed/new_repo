@@ -1,4 +1,4 @@
-# HPA for Frontend service (main entry point)
+# HPA for Frontend service (aggressive scaling for testing)
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -10,36 +10,40 @@ spec:
     kind: Deployment
     name: frontend
   minReplicas: 1
-  maxReplicas: 10
+  maxReplicas: 15
   metrics:
   - type: Resource
     resource:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 50
+        averageUtilization: 30  # Lower threshold for faster scaling
   - type: Resource
     resource:
       name: memory
       target:
         type: Utilization
-        averageUtilization: 70
+        averageUtilization: 50  # Lower threshold for faster scaling
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 30
+      stabilizationWindowSeconds: 15  # Very fast scale up
       policies:
       - type: Percent
-        value: 100
-        periodSeconds: 60
+        value: 200  # Double the pods quickly
+        periodSeconds: 30
+      - type: Pods
+        value: 3  # Or add 3 pods at once
+        periodSeconds: 30
+      selectPolicy: Max  # Use the more aggressive policy
     scaleDown:
-      stabilizationWindowSeconds: 300
+      stabilizationWindowSeconds: 60  # Fast scale down for testing
       policies:
       - type: Percent
-        value: 50
-        periodSeconds: 60
+        value: 50  # Remove 50% of pods
+        periodSeconds: 30
 
 ---
-# HPA for Recommendation service (CPU intensive)
+# HPA for Recommendation service (aggressive scaling for testing)
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -51,6 +55,80 @@ spec:
     kind: Deployment
     name: recommendationservice
   minReplicas: 1
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 25  # Very low threshold for aggressive scaling
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 10  # Almost instant scale up
+      policies:
+      - type: Percent
+        value: 300  # Triple the pods
+        periodSeconds: 20
+      - type: Pods
+        value: 4  # Or add 4 pods at once
+        periodSeconds: 20
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 45  # Quick scale down
+      policies:
+      - type: Percent
+        value: 75  # Remove 75% of pods quickly
+        periodSeconds: 20
+
+---
+# HPA for Cart service (additional load target)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cartservice-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cartservice
+  minReplicas: 1
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 35
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 20
+      policies:
+      - type: Percent
+        value: 200
+        periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 60
+        periodSeconds: 30
+
+---
+# HPA for Product Catalog service
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: productcatalogservice-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: productcatalogservice
+  minReplicas: 1
   maxReplicas: 5
   metrics:
   - type: Resource
@@ -58,9 +136,17 @@ spec:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 60
+        averageUtilization: 40
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 30
+      stabilizationWindowSeconds: 15
+      policies:
+      - type: Percent
+        value: 150
+        periodSeconds: 25
     scaleDown:
-      stabilizationWindowSeconds: 300
+      stabilizationWindowSeconds: 90
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 30

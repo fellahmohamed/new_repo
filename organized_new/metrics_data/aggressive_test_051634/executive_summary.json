@@ -1,0 +1,25 @@
+{
+  "test_name": "aggressive_test_051634",
+  "timestamp": "2025-06-28 05:39:19",
+  "metrics": {
+    "duration_seconds": 176.0,
+    "duration_minutes": 2.933333333333333,
+    "avg_cpu_usage": 13.201176470588235,
+    "avg_memory_usage": 6.243529411764706,
+    "avg_cpu_idle": 86.79882352941178,
+    "avg_memory_idle": 93.75647058823529,
+    "max_cpu_usage": 19.85,
+    "max_memory_usage": 6.93,
+    "min_cpu_idle": 80.15,
+    "min_memory_idle": 93.07,
+    "cpu_trend": "increasing",
+    "memory_trend": "increasing",
+    "hpa_max_frontend_pods": "6",
+    "hpa_min_frontend_pods": "1",
+    "hpa_avg_frontend_pods": 4.176470588235294,
+    "scale_up_events": "2",
+    "scale_down_events": "0",
+    "peak_rps": 79.1,
+    "avg_rps": 65.67047032954544
+  }
+}

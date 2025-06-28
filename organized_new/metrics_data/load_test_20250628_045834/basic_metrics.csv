@@ -1,0 +1,2 @@
+timestamp,total_pods,cpu_used_millicores,memory_used_mb,cpu_allocatable_millicores,memory_allocatable_mb,cpu_usage_percent,memory_usage_percent,cpu_idle_percent,memory_idle_percent,cpu_requests_percent,memory_requests_percent
+2025-06-28 04:58:34,12,126,1003,4000,15765.2,3.15,6.36,96.85,93.64,0,0

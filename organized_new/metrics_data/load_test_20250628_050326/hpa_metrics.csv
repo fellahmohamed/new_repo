@@ -1,0 +1,4 @@
+timestamp,frontend_pods,recommendation_pods,frontend_cpu_target,frontend_memory_target,recommendation_cpu_target
+2025-06-28 05:03:27,2,1,,,
+2025-06-28 05:03:37,2,1,,,
+2025-06-28 05:03:48,2,1,,,

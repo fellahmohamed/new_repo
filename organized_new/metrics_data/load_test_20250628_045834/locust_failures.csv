@@ -1,0 +1,5 @@
+Method,Name,Error,Occurrences
+GET,homepage,CatchResponseError('Homepage failed with status 0'),29
+GET,/,"ConnectionRefusedError(111, 'Connection refused')",79
+GET,/cart,"ConnectionRefusedError(111, 'Connection refused')",54
+GET,browse_products,CatchResponseError('Product browsing failed with status 0'),46
