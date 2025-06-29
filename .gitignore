@@ -1,0 +1,54 @@
+# Ignore CSV data files
+*.csv
+
+# Ignore metrics data directory
+metrics_data/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Ignore Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore log files
+*.log
+
+# Ignore temporary files
+*.tmp
+*.temp
+*~
+
+# Ignore OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore environment files
+.env
+.venv
+env/
+venv/
+
+# Ignore large data files
+*.gz
+*.tar
+*.zip
+*.rar
+
+# Keep important CSV templates but ignore generated metrics
+!*template*.csv
+!*example*.csv
