@@ -1,0 +1,2 @@
+timestamp,pod_count,desired_replicas,cpu_usage,memory_usage,traffic_in,traffic_out
+2025-06-29 03:38:46,1,1,0.74,52.67,7944.69,11132.96

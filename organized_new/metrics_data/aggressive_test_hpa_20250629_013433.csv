@@ -1,0 +1,15 @@
+timestamp,frontend_target_replicas,frontend_current_replicas,frontend_cpu_percent,frontend_memory_percent,recommendationservice_target_replicas,recommendationservice_current_replicas,recommendationservice_cpu_percent,cartservice_target_replicas,cartservice_current_replicas,cartservice_cpu_percent
+2025-06-29 01:34:33,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:34:38,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:34:44,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:34:49,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:34:54,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:35:00,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:35:05,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:35:11,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:35:16,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:35:22,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:35:27,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:35:33,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:35:38,0,0,0,0,0,0,0,0,0,0
+2025-06-29 01:35:44,0,0,0,0,0,0,0,0,0,0

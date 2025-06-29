@@ -1,77 +1,112 @@
 #!/bin/bash
 
-# Quick Aggressive Load Test Script
-# Usage: ./quick_aggressive_test.sh [host_url]
+# Quick Aggressive HPA Test
+# Simplified version for quick testing and verification
 
-HOST_URL=${1:-"http://192.168.49.2:31858"}
-TEST_NAME="aggressive_test_$(date +%H%M%S)"
+FRONTEND_URL="http://$(minikube ip):$(kubectl get service frontend-external -o jsonpath='{.spec.ports[0].nodePort}')"
+METRICS_DIR="/home/mohamed/Desktop/Pfe_new/organized_new/metrics_data"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
-echo "🚀 Starting 3-minute aggressive load test..."
-echo "Host: $HOST_URL"
-echo "Test: $TEST_NAME"
+echo "=== Quick Aggressive HPA Test ==="
+echo "Frontend URL: $FRONTEND_URL"
+echo "This test runs for 5 minutes with rapid load changes"
+
+# Ensure metrics directory exists
+mkdir -p "$METRICS_DIR"
+
+# Check if frontend is accessible
+echo "Checking frontend..."
+if ! curl -s --max-time 5 "$FRONTEND_URL" > /dev/null; then
+    echo "Error: Cannot reach frontend at $FRONTEND_URL"
+    echo "Check: kubectl get svc frontend-external"
+    exit 1
+fi
+echo "✓ Frontend accessible"
+
+# Check HPA status
+echo "Current HPA status:"
+kubectl get hpa
+
+# Start monitoring in background
+{
+    while true; do
+        echo "$(date): $(kubectl get hpa --no-headers | awk '{print $1, $3, $4, $5}')" >> "$METRICS_DIR/quick_test_${TIMESTAMP}.log"
+        sleep 5
+    done
+} &
+MONITOR_PID=$!
+
+# Cleanup function
+cleanup() {
+    kill $MONITOR_PID 2>/dev/null
+    pkill -f "locust" 2>/dev/null || true
+    echo "Test completed. Check $METRICS_DIR/quick_test_${TIMESTAMP}.log"
+}
+trap cleanup EXIT INT TERM
+
+echo "Starting load test phases..."
+
+# Phase 1: Sudden spike (30 seconds)
+echo "Phase 1: Spike to 80 users"
+timeout 30s locust -f /home/mohamed/Desktop/Pfe_new/organized_new/enhanced_locust.py \
+                   --host="$FRONTEND_URL" \
+                   --headless \
+                   --users 80 \
+                   --spawn-rate 10 \
+                   --run-time 30s > /dev/null 2>&1 &
+sleep 35
+
+# Phase 2: Drop to baseline (30 seconds)
+echo "Phase 2: Drop to 5 users"
+timeout 30s locust -f /home/mohamed/Desktop/Pfe_new/organized_new/enhanced_locust.py \
+                   --host="$FRONTEND_URL" \
+                   --headless \
+                   --users 5 \
+                   --spawn-rate 5 \
+                   --run-time 30s > /dev/null 2>&1 &
+sleep 35
+
+# Phase 3: Medium load (45 seconds)
+echo "Phase 3: Medium load 40 users"
+timeout 45s locust -f /home/mohamed/Desktop/Pfe_new/organized_new/enhanced_locust.py \
+                   --host="$FRONTEND_URL" \
+                   --headless \
+                   --users 40 \
+                   --spawn-rate 8 \
+                   --run-time 45s > /dev/null 2>&1 &
+sleep 50
+
+# Phase 4: Another spike (30 seconds)
+echo "Phase 4: Second spike to 100 users"
+timeout 30s locust -f /home/mohamed/Desktop/Pfe_new/organized_new/enhanced_locust.py \
+                   --host="$FRONTEND_URL" \
+                   --headless \
+                   --users 100 \
+                   --spawn-rate 15 \
+                   --run-time 30s > /dev/null 2>&1 &
+sleep 35
+
+# Phase 5: Gradual decrease (60 seconds)
+echo "Phase 5: Gradual decrease"
+for users in 60 40 20 10; do
+    echo "  Setting $users users"
+    timeout 15s locust -f /home/mohamed/Desktop/Pfe_new/organized_new/enhanced_locust.py \
+                       --host="$FRONTEND_URL" \
+                       --headless \
+                       --users $users \
+                       --spawn-rate 5 \
+                       --run-time 15s > /dev/null 2>&1 &
+    sleep 17
+done
+
+echo "=== Quick Test Summary ==="
+echo "Final HPA status:"
+kubectl get hpa
 echo ""
-
-# Apply aggressive HPA configuration
-echo "📋 Applying aggressive HPA configuration..."
-kubectl apply -f hpa-config.yaml
-
-echo "⏳ Waiting 10 seconds for HPA to initialize..."
-sleep 10
-
-# Start metrics collection in background
-echo "📊 Starting metrics collection..."
-./basic_metrics.sh "$TEST_NAME" 180 &
-METRICS_PID=$!
-
-# Start HPA metrics collection
-./collect_metrics.sh "$TEST_NAME" 180 &
-HPA_METRICS_PID=$!
-
-sleep 2
-
-# Show initial pod state
-echo "📈 Initial pod state:"
-kubectl get pods | grep -E "(frontend|recommendation|cart|product)"
+echo "Recent scaling events:"
+kubectl get events --field-selector type=Normal | grep -E "(Scaled|HorizontalPodAutoscaler)" | tail -10
 echo ""
-
-# Start the aggressive load test
-echo "🔥 Launching aggressive load test for 3 minutes..."
-echo "Expected behavior:"
-echo "  • 0-30s: Warmup (moderate load)"
-echo "  • 30-60s: Spike 1 (high load, expect scale up)"
-echo "  • 60-90s: Cooldown 1 (reduced load, expect scale down)"
-echo "  • 90-120s: Spike 2 (high load, expect scale up again)"
-echo "  • 120-150s: Cooldown 2 (reduced load)"
-echo "  • 150-180s: Finale spike (maximum load)"
-echo ""
-
-# Monitor HPA in background
-watch -n 2 'echo "=== HPA Status ==="; kubectl get hpa; echo ""; echo "=== Pod Counts ==="; kubectl get pods | grep -E "(frontend|recommendation|cart|product)" | grep Running | wc -l; echo "Total running pods: $(kubectl get pods | grep Running | wc -l)"' &
-WATCH_PID=$!
-
-# Run the load test
-locust -f enhanced_locust.py \
-    --host="$HOST_URL" \
-    --users 200 \
-    --spawn-rate 20 \
-    --run-time 3m \
-    --headless \
-    --csv="metrics_data/$TEST_NAME/locust" \
-    --html="metrics_data/$TEST_NAME/locust_report.html"
-
-# Stop monitoring
-kill $WATCH_PID 2>/dev/null
-
-# Wait for metrics collection to complete
-echo ""
-echo "⏳ Waiting for metrics collection to complete..."
-wait $METRICS_PID
-wait $HPA_METRICS_PID
-
-echo ""
-echo "✅ Test completed!"
-echo "📊 Final pod state:"
-kubectl get pods | grep -E "(frontend|recommendation|cart|product)"
+echo "Log file: $METRICS_DIR/quick_test_${TIMESTAMP}.log"
 
 echo ""
 echo "📈 HPA Status:"

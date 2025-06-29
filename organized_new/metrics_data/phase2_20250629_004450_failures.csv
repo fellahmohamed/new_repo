@@ -1,0 +1,6 @@
+Method,Name,Error,Occurrences
+GET,/,"ConnectionRefusedError(111, 'Connection refused')",10
+GET,search_normal,CatchResponseError('Search failed: 0'),1
+GET,homepage_normal,CatchResponseError('Homepage failed: 0'),9
+GET,product_browsing_normal,CatchResponseError('Product browsing failed: 0'),11
+GET,view_cart,CatchResponseError('Cart view failed: 0'),2

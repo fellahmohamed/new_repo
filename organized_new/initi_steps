@@ -60,3 +60,9 @@ Metrics collection :
 		chmod +x collect_metrics.sh
 		./collect_metrics.sh "test_collection" 30
 
+- current metrics used 
+  kubectl top pod
+
+	- limits of containers
+		kubectl get pods -n default -o custom-columns="NAME:.metadata.name,CPU_REQUEST:.spec.containers[*].resources.requests.cpu,MEM_REQUEST:.spec.containers[*].resources.requests.memory,CPU_LIMIT:.spec.containers[*].resources.limits.cpu,MEM_LIMIT:.spec.containers[*].resources.limits.memory"
+
