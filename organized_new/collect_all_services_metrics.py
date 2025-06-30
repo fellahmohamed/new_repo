@@ -2,6 +2,7 @@
 """
 Prometheus Metrics Collector for All Online Boutique Services
 Collects metrics for all services in the format matching gym-hpa reference dataset.
+Supports dual Prometheus setup: main for container metrics, Istio for service mesh metrics.
 """
 
 import requests
@@ -11,8 +12,9 @@ import argparse
 from datetime import datetime
 import sys
 
-# Prometheus server URL (adjust if needed)
-PROMETHEUS_URL = "http://localhost:9095"
+# Prometheus server URLs
+PROMETHEUS_URL = "http://localhost:9090"      # Main Prometheus (container metrics)
+ISTIO_PROMETHEUS_URL = "http://localhost:9092"  # Istio Prometheus (service mesh metrics)
 
 # All Online Boutique services in the order from reference CSV
 SERVICES = [
@@ -51,6 +53,28 @@ def query_prometheus(query, timestamp=None):
         # Suppress errors for cleaner output
         return None
 
+def query_prometheus_istio(query, timestamp=None):
+    """
+    Query Istio Prometheus and return the result.
+    Returns None if query fails or no data found.
+    """
+    try:
+        url = f"{ISTIO_PROMETHEUS_URL}/api/v1/query"
+        params = {'query': query}
+        if timestamp:
+            params['time'] = timestamp
+        
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        if data['status'] == 'success' and data['data']['result']:
+            return data['data']['result']
+        return None
+    except Exception:
+        # Suppress errors for cleaner output
+        return None
+    
 def get_service_metrics(service_name):
     """Get all metrics for a specific service."""
     
@@ -74,7 +98,6 @@ def get_service_metrics(service_name):
     
     # CPU usage
     cpu_queries = [
-        f'sum(rate(container_cpu_usage_seconds_total{{pod=~"{service_name}-.*", container!="POD", container!=""}}[1m])) * 1000',  # Convert to millicores
         f'sum(rate(container_cpu_usage_seconds_total{{pod=~"{service_name}-.*"}}[1m])) * 1000',
         '10'  # Default fallback
     ]
@@ -85,42 +108,54 @@ def get_service_metrics(service_name):
             cpu_usage = round(float(result[0]['value'][1]), 0)
             break
     
-    # Memory usage (GB)
+    # Memory usage (MB)
     mem_queries = [
-        f'sum(container_memory_working_set_bytes{{pod=~"{service_name}-.*", container!="POD", container!=""}}) / 1024 / 1024 / 1024',
-        f'sum(container_memory_usage_bytes{{pod=~"{service_name}-.*", container!="POD", container!=""}}) / 1024 / 1024 / 1024',
-        f'sum(container_memory_working_set_bytes{{pod=~"{service_name}-.*"}}) / 1024 / 1024 / 1024'
+        f'container_memory_usage_bytes{{pod=~"{service_name}-.*"}} / 1024 / 1024',  # Convert to MB
     ]
     mem_usage = 0.0
     for query in mem_queries:
         result = query_prometheus(query)
         if result and result[0]['value'][1]:
-            mem_usage = round(float(result[0]['value'][1]), 1)
+            mem_usage = float(result[0]['value'][1])
             break
     
     # Traffic in (bytes/sec)
-    traffic_in_query = f'sum(rate(container_network_receive_bytes_total{{pod=~"{service_name}-.*"}}[1m]))'
-    result = query_prometheus(traffic_in_query)
+    traffic_in_query = f'sum(rate(istio_request_bytes_count{{pod=~"{service_name}.*"}}[1m]))'
+    result = query_prometheus_istio(traffic_in_query)
     if result and result[0]['value'][1]:
         traffic_in = round(float(result[0]['value'][1]), 0)
     else:
         # Fallback to node-level approximation
-        result = query_prometheus('sum(rate(node_network_receive_bytes_total{device!="lo"}[1m]))')
-        traffic_in = round(float(result[0]['value'][1]) * 0.05, 0) if result and result[0]['value'][1] else 0
+        result = query_prometheus_istio('sum(rate(node_network_receive_bytes_total{device!="lo"}[1m]))')
+        traffic_in = 12
     
     # Traffic out (bytes/sec)
-    traffic_out_query = f'sum(rate(container_network_transmit_bytes_total{{pod=~"{service_name}-.*"}}[1m]))'
-    result = query_prometheus(traffic_out_query)
+    traffic_out_query = f'sum(rate(istio_response_messages_total{{pod=~"{service_name}-.*"}}[1m]))'
+    result = query_prometheus_istio(traffic_out_query)
     if result and result[0]['value'][1]:
         traffic_out = round(float(result[0]['value'][1]), 0)
     else:
         # Fallback to node-level approximation
-        result = query_prometheus('sum(rate(node_network_transmit_bytes_total{device!="lo"}[1m]))')
-        traffic_out = round(float(result[0]['value'][1]) * 0.05, 0) if result and result[0]['value'][1] else 0
-    
+        result = query_prometheus_istio('sum(rate(node_network_transmit_bytes_total{device!="lo"}[1m]))')
+        traffic_out = 12
     # Latency (using a default value similar to reference data)
-    latency = 1379.578  # Default latency value from reference
     
+    
+    query = f'''histogram_quantile(0.99,
+        sum by (le, destination_workload, destination_workload_namespace) (
+    rate(istio_request_duration_milliseconds_bucket{{
+    reporter="destination",
+    destination_workload="{service_name}",
+    }}[5m])
+  )
+)'''
+    
+    result = query_prometheus_istio(query)
+    if result and len(result) > 0:
+        latency = float(result[0]['value'][1])
+    else:
+        latency = 1379.578  # Default latency value from reference
+
     return {
         'num_pods': num_pods,
         'desired_replicas': desired_replicas,
@@ -177,7 +212,10 @@ def print_metrics_summary(metrics):
         desired = metrics[f"{service}_desired_replicas"]
         cpu = metrics[f"{service}_cpu_usage"]
         mem = metrics[f"{service}_mem_usage"]
-        print(f"  {service:20s}: {pods}/{desired} pods | CPU: {cpu:3d}m | Mem: {mem:4.1f}GB")
+        traffic_in = metrics[f"{service}_traffic_in"]
+        traffic_out = metrics[f"{service}_traffic_out"]
+        latency = metrics[f"{service}_latency"]
+        print(f"  {service:20s}: {pods}/{desired} pods | CPU: {cpu:3d}m | Mem: {mem:4.1f}GB | Traffic In: {traffic_in}B/s | Traffic Out: {traffic_out}B/s | Latency: {latency}ms")
 
 def main():
     parser = argparse.ArgumentParser(description='Collect Prometheus metrics for all Online Boutique services')

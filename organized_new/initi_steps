@@ -29,6 +29,8 @@
   -(optional) kubernetes dashboard:
   	minikube dashboard
   	
+
+	minikube addons enable metrics-server
 4 _ grafana :
 	minikube service promstack-grafana -n monitoring
 
@@ -54,6 +56,9 @@ kubectl describe hpa recommendationservice-hpa
 
 
 
+prometheus
+# ui
+kubectl port-forward svc/prometheus-kube-prometheus-prometheus -n monitoring 9095:9090
 ----------------------------------------
 Metrics collection :
  - collect_metrics.sh (script for collecting metrics in csv format)
