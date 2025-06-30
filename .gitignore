@@ -42,6 +42,10 @@ Thumbs.db
 .venv
 env/
 venv/
+.venv/
+sb3_env/
+gym-hpa-main/sb3_env/       
+
 
 # Ignore large data files
 *.gz
