@@ -56,3 +56,9 @@ gym-hpa-main/sb3_env/
 # Keep important CSV templates but ignore generated metrics
 !*template*.csv
 !*example*.csv
+
+# Ignore data/output
+results/
+datasets/
+sb3_env/
+

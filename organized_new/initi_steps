@@ -56,9 +56,19 @@ kubectl describe hpa recommendationservice-hpa
 
 
 
+monitoring setup initial (might change it to promstack):
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
+
+	helm install prometheus prometheus-community/kube-prometheus-stack \
+		--namespace monitoring --create-namespace
+
+
+
 prometheus
 # ui
-kubectl port-forward svc/prometheus-kube-prometheus-prometheus -n monitoring 9095:9090
+kubectl port-forward svc/prometheus-kube-prometheus-prometheus -n monitoring 9090
+## kubectl port-forward svc/prometheus-kube-prometheus-prometheus -n monitoring 9095:9090
 ----------------------------------------
 Metrics collection :
  - collect_metrics.sh (script for collecting metrics in csv format)

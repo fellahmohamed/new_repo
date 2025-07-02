@@ -3,7 +3,7 @@ import math
 import random
 import time
 import requests
-from kubernetes import client
+from kubernetes import client, config
 
 # Constants
 MAX_CPU = 10000  # cpu in m
@@ -19,7 +19,7 @@ PROMETHEUS_URL = 'http://localhost:9090/'
 # Endpoint of your Kube cluster: kube proxy enabled
 HOST = "http://localhost:8080"
 
-# TODO: Add the TOKEN from your cluster!
+# For Minikube with kubectl proxy - no token needed
 TOKEN = ""
 
 
@@ -36,47 +36,47 @@ def get_redis_deployment_list(k8s, min, max):
 def get_online_boutique_deployment_list(k8s, min, max):
     deployment_list = [
         # 1
-        DeploymentStatus(k8s, "recommendationservice", "onlineboutique", "recommendationservice",
+        DeploymentStatus(k8s, "recommendationservice", "default", "recommendationservice",
                          "quay.io/signalfuse/microservices-demo-recommendationservice:433c23881a",
                          max, min, 100, 200, 220, 450),
         # 2
-        DeploymentStatus(k8s, "productcatalogservice", "onlineboutique", "productcatalogservice",
+        DeploymentStatus(k8s, "productcatalogservice", "default", "productcatalogservice",
                          "quay.io/signalfuse/microservices-demo-productcatalogservice:433c23881a",
                          max, min, 100, 200, 64, 128),
         # 3
-        DeploymentStatus(k8s, "cartservice", "onlineboutique", "cartservice",
+        DeploymentStatus(k8s, "cartservice", "default", "cartservice",
                          "quay.io/signalfuse/microservices-demo-cartservice:433c23881a",
                          max, min, 200, 300, 64, 128),
         # 4
-        DeploymentStatus(k8s, "adservice", "onlineboutique", "adservice",
+        DeploymentStatus(k8s, "adservice", "default", "adservice",
                          "quay.io/signalfuse/microservices-demo-adservice:433c23881a",
                          max, min, 200, 300, 180, 300),
         # 5
-        DeploymentStatus(k8s, "paymentservice", "onlineboutique", "paymentservice",
+        DeploymentStatus(k8s, "paymentservice", "default", "paymentservice",
                          "quay.io/signalfuse/microservices-demo-paymentservice:433c23881a",
                          max, min, 100, 200, 64, 128),
         # 6
-        DeploymentStatus(k8s, "shippingservice", "onlineboutique", "shippingservice",
+        DeploymentStatus(k8s, "shippingservice", "default", "shippingservice",
                          "quay.io/signalfuse/microservices-demo-shippingservice:433c23881a",
                          max, min, 100, 200, 64, 128),
         # 7
-        DeploymentStatus(k8s, "currencyservice", "onlineboutique", "currencyservice",
+        DeploymentStatus(k8s, "currencyservice", "default", "currencyservice",
                          "quay.io/signalfuse/microservices-demo-currencyservice:433c23881a",
                          max, min, 100, 200, 64, 128),
         # 8
-        DeploymentStatus(k8s, "redis-cart", "onlineboutique", "redis-cart",
+        DeploymentStatus(k8s, "redis-cart", "default", "redis-cart",
                          "redis:alpine",
                          max, min, 70, 125, 200, 256),
         # 9
-        DeploymentStatus(k8s, "checkoutservice", "onlineboutique", "checkoutservice",
+        DeploymentStatus(k8s, "checkoutservice", "default", "checkoutservice",
                          "quay.io/signalfuse/microservices-demo-checkoutservice:433c23881a",
                          max, min, 100, 200, 64, 128),
         # 10
-        DeploymentStatus(k8s, "frontend", "onlineboutique", "frontend",
+        DeploymentStatus(k8s, "frontend", "default", "frontend",
                          "quay.io/signalfuse/microservices-demo-frontend:433c23881a",
                          max, min, 100, 200, 64, 128),
         # 11
-        DeploymentStatus(k8s, "emailservice", "onlineboutique", "emailservice",
+        DeploymentStatus(k8s, "emailservice", "default", "emailservice",
                          "quay.io/signalfuse/microservices-demo-frontend:433c23881a",
                          max, min, 100, 200, 64, 128),
     ]
@@ -210,30 +210,29 @@ class DeploymentStatus:  # Deployment Status (Workload)
 
         if self.k8s:  # Real env: consider a k8s cluster
             logging.info("[Deployment] Consider a real k8s cluster ... ")
-            # out of cluster!
-            # config.load_kube_config()
+            
+            # Load kubeconfig for Minikube
+            try:
+                config.load_kube_config()  # This loads ~/.kube/config automatically
+                logging.info("[Deployment] Loaded kubeconfig successfully")
+            except Exception as e:
+                logging.error(f"[Deployment] Failed to load kubeconfig: {e}")
+                # Fallback to manual configuration
+                self.config = client.Configuration()
+                self.config.verify_ssl = False
+                if TOKEN:
+                    self.config.api_key = {"authorization": "Bearer " + TOKEN}
+                self.config.host = HOST
+                self.client = client.ApiClient(self.config)
 
-            # In cluster config!
-            # config.load_incluster_config()
-
-            # token for VWall cluster
-            self.token = TOKEN
-
-            # Create a configuration object
-            self.config = client.Configuration()
-            self.config.verify_ssl = False
-            self.config.api_key = {"authorization": "Bearer " + self.token}
-
-            # Specify the endpoint of your Kube cluster: kube proxy enabled
-            self.config.host = HOST
-
-            # Create a ApiClient with our config
-            self.client = client.ApiClient(self.config)
-
-            # v1 api
-            self.v1 = client.CoreV1Api(self.client)
-            # apps v1 api
-            self.apps_v1 = client.AppsV1Api(self.client)
+            # Create API clients (works with both kubeconfig and manual config)
+            if hasattr(self, 'client'):
+                self.v1 = client.CoreV1Api(self.client)
+                self.apps_v1 = client.AppsV1Api(self.client)
+            else:
+                # Using kubeconfig - create clients directly
+                self.v1 = client.CoreV1Api()
+                self.apps_v1 = client.AppsV1Api()
 
             # metrics api
             # self.metrics_api = client.CustomObjectsApi(self.client)

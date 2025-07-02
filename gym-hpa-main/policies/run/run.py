@@ -6,7 +6,7 @@ from stable_baselines3 import PPO
 from stable_baselines3 import A2C
 from sb3_contrib import RecurrentPPO
 
-from gym_hpa.envs import Redis, OnlineBoutique
+from gym_hpa.envs import Redis, OnlineBoutique , OnlineBoutiqueMO
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 # Logging
@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='Run ILP!')
 parser.add_argument('--alg', default='ppo', help='The algorithm: ["ppo", "recurrent_ppo", "a2c"]')
 parser.add_argument('--k8s', default=False, action="store_true", help='K8s mode')
 parser.add_argument('--use_case', default='redis', help='Apps: ["redis", "online_boutique"]')
-parser.add_argument('--goal', default='cost', help='Reward Goal: ["cost", "latency"]')
+parser.add_argument('--goal', default='cost', help='Reward Goal: ["cost", "latency" ,"cost_latency"]')
 
 parser.add_argument('--training', default=False, action="store_true", help='Training mode')
 parser.add_argument('--testing', default=False, action="store_true", help='Testing mode')
@@ -65,6 +65,8 @@ def get_env(use_case, k8s, goal):
         env = Redis(k8s=k8s, goal_reward=goal)
     elif use_case == 'online_boutique':
         env = OnlineBoutique(k8s=k8s, goal_reward=goal)
+    elif use_case == 'online_boutique_mo':
+        env = OnlineBoutiqueMO(k8s=k8s, goal_reward=goal, waiting_period=0.3, objective_weights=[0.5, 0.5])
     else:
         logging.error('Invalid use_case!')
         raise ValueError('Invalid use_case!')
