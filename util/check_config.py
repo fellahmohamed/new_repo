@@ -374,6 +374,46 @@ def open_dashboard_in_browser(url):
         print(f"[⚠️] Could not open browser automatically: {e}")
         return False
 
+def get_dashboard_token():
+    """Generate and return the Kubernetes Dashboard token"""
+    try:
+        cmd = [
+            "kubectl", "-n", K8S_DASHBOARD_NAMESPACE, 
+            "create", "token", "kubernetes-dashboard"
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            token = result.stdout.strip()
+            return token
+        else:
+            print(f"[⚠️] Failed to generate token: {result.stderr}")
+            return None
+    except subprocess.TimeoutExpired:
+        print(f"[⚠️] Token generation timed out")
+        return None
+    except Exception as e:
+        print(f"[⚠️] Error generating token: {e}")
+        return None
+
+def copy_to_clipboard(text):
+    """Try to copy text to clipboard"""
+    try:
+        # Try different clipboard commands
+        commands = [
+            ["xclip", "-selection", "clipboard"],
+            ["xsel", "--clipboard", "--input"],
+            ["pbcopy"]  # macOS
+        ]
+        
+        for cmd in commands:
+            try:
+                subprocess.run(cmd, input=text, text=True, check=True, timeout=5)
+                return True
+            except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+                continue
+        return False
+    except Exception:
+        return False
 def main():
     """Main function to test Kiali, Prometheus and Dashboard functionality"""
     print("🔧 Kubernetes Cluster Checker - Kiali, Prometheus & Dashboard Test")
@@ -432,14 +472,59 @@ def main():
             dashboard_url = f"https://{vm_ip}:{K8S_DASHBOARD_TARGET_PORT}"
             response = input(f"\nOpen Kubernetes Dashboard in browser ({dashboard_url})? (y/N): ")
             if response.lower() == 'y':
+                # Generate token first
+                print(f"[🔑] Generating authentication token...")
+                token = get_dashboard_token()
+                
+                if token:
+                    print(f"[✓] Token generated successfully!")
+                    print(f"[📋] Dashboard Token:")
+                    print(f"────────────────────────────────────────")
+                    print(token)
+                    print(f"────────────────────────────────────────")
+                    
+                    # Try to copy to clipboard
+                    if copy_to_clipboard(token):
+                        print(f"[✓] Token copied to clipboard!")
+                    else:
+                        print(f"[ℹ️] Please copy the token above manually")
+                else:
+                    print(f"[⚠️] Could not generate token automatically")
+                    print(f"[ℹ️] Manual command: kubectl -n {K8S_DASHBOARD_NAMESPACE} create token kubernetes-dashboard")
+                
+                # Open browser
                 if open_dashboard_in_browser(dashboard_url):
                     print(f"[✓] Dashboard opened in browser")
-                    print(f"[ℹ️] You'll need to get a token with:")
-                    print(f"[ℹ️] kubectl -n {K8S_DASHBOARD_NAMESPACE} create token kubernetes-dashboard")
+                    print(f"[ℹ️] Paste the token above in the authentication form")
                 else:
                     print(f"[ℹ️] Please manually open: {dashboard_url}")
+            else:
+                # User chose not to open browser, but might want the token
+                response = input(f"Generate and display dashboard token? (y/N): ")
+                if response.lower() == 'y':
+                    print(f"[🔑] Generating authentication token...")
+                    token = get_dashboard_token()
+                    if token:
+                        print(f"[✓] Dashboard Token:")
+                        print(f"────────────────────────────────────────")
+                        print(token)
+                        print(f"────────────────────────────────────────")
+                        if copy_to_clipboard(token):
+                            print(f"[✓] Token copied to clipboard!")
         else:
             print(f"[ℹ️] Could not auto-detect VM IP. Please access dashboard manually.")
+            # Still offer to generate token
+            response = input(f"Generate and display dashboard token? (y/N): ")
+            if response.lower() == 'y':
+                print(f"[🔑] Generating authentication token...")
+                token = get_dashboard_token()
+                if token:
+                    print(f"[✓] Dashboard Token:")
+                    print(f"────────────────────────────────────────")
+                    print(token)
+                    print(f"────────────────────────────────────────")
+                    if copy_to_clipboard(token):
+                        print(f"[✓] Token copied to clipboard!")
     elif dashboard_available:
         print(f"\n[ℹ️] Dashboard is accessible directly via {dashboard_service_type} - no port-forwarding needed")
     
