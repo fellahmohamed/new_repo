@@ -245,6 +245,30 @@ def check_k8s_dashboard_service():
             K8S_DASHBOARD_SERVICE_NAME = service_name
             K8S_DASHBOARD_NAMESPACE = namespace
             
+            # Check service type and provide appropriate access info
+            service_type = svc.spec.type
+            print(f"[ℹ️] Service type: {service_type}")
+            
+            if service_type == "NodePort":
+                # Find the NodePort
+                for port in svc.spec.ports:
+                    if port.node_port:
+                        print(f"[ℹ️] Dashboard available via NodePort: <VM_IP>:{port.node_port}")
+                        print(f"[ℹ️] Example: https://your-vm-ip:{port.node_port}")
+                        print("    🔐 Note: You'll need to use your VM's external IP address")
+                        break
+            elif service_type == "LoadBalancer":
+                # Check for external IP
+                if svc.status.load_balancer.ingress:
+                    external_ip = svc.status.load_balancer.ingress[0].ip
+                    port = svc.spec.ports[0].port
+                    print(f"[ℹ️] Dashboard available via LoadBalancer: https://{external_ip}:{port}")
+                else:
+                    print(f"[⚠️] LoadBalancer service found but no external IP assigned yet")
+            else:
+                # ClusterIP - needs port forwarding
+                print(f"[ℹ️] ClusterIP service - will use port-forwarding")
+            
             # Also check if Dashboard pod is running
             pods = v1.list_namespaced_pod(namespace=namespace).items
             dashboard_pod = next((pod for pod in pods if "dashboard" in pod.metadata.name), None)
@@ -253,7 +277,11 @@ def check_k8s_dashboard_service():
             else:
                 print(f"[⚠️] Kubernetes Dashboard service found but pod may not be running")
             
-            return True
+            # Show token generation command
+            print("    💡 Get authentication token with:")
+            print(f"    💡 kubectl -n {namespace} create token kubernetes-dashboard")
+            
+            return True, service_type
         except ApiException:
             continue
     
@@ -263,7 +291,7 @@ def check_k8s_dashboard_service():
     print("    💡 kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml")
     print("    💡 Alternative: Check if dashboard is installed with different name/namespace")
     print("    💡 Run: kubectl get svc --all-namespaces | grep dashboard")
-    return False
+    return False, None
 
 def start_k8s_dashboard_port_forward():
     """Start port forwarding for Kubernetes Dashboard"""
@@ -327,7 +355,7 @@ def main():
     # Check services
     kiali_available = check_kiali_service()
     prometheus_available = check_prometheus_service()
-    dashboard_available = check_k8s_dashboard_service()
+    dashboard_available, dashboard_service_type = check_k8s_dashboard_service()
     
     # If dashboard not found, offer to list all services for debugging
     if not dashboard_available:
@@ -352,12 +380,15 @@ def main():
             if prometheus_proc:
                 active_processes['prometheus'] = prometheus_proc
     
-    if dashboard_available:
+    # Only offer port-forwarding for dashboard if it's ClusterIP
+    if dashboard_available and dashboard_service_type == "ClusterIP":
         response = input(f"\nStart Kubernetes Dashboard port-forward on localhost:{K8S_DASHBOARD_LOCAL_PORT}? (y/N): ")
         if response.lower() == 'y':
             dashboard_proc = start_k8s_dashboard_port_forward()
             if dashboard_proc:
                 active_processes['dashboard'] = dashboard_proc
+    elif dashboard_available:
+        print(f"\n[ℹ️] Dashboard is accessible directly via {dashboard_service_type} - no port-forwarding needed")
     
     if active_processes:
         print(f"\n[ℹ️] Active services:")
