@@ -6,7 +6,7 @@ from stable_baselines3 import PPO
 from stable_baselines3 import A2C
 from sb3_contrib import RecurrentPPO
 
-from gym_hpa.envs import Redis, OnlineBoutique , OnlineBoutiqueMO, OnlineBoutiqueMOQ
+from gym_hpa.envs import Redis, OnlineBoutique , OnlineBoutiqueMO
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 # Multi-Objective RL imports
@@ -90,8 +90,6 @@ def get_env(use_case, k8s, goal):
         env = OnlineBoutique(k8s=k8s, goal_reward=goal)
     elif use_case == 'online_boutique_mo':
         env = OnlineBoutiqueMO(k8s=k8s, goal_reward=goal, waiting_period=0.3, objective_weights=[0.5, 0.5])
-    elif use_case == 'online_boutique_moq':
-        env = OnlineBoutiqueMOQ(k8s=k8s, goal_reward=goal, waiting_period=0.3, objective_weights=[0.5, 0.5])
     else:
         logging.error('Invalid use_case!')
         raise ValueError('Invalid use_case!')
@@ -133,11 +131,11 @@ def main():
     checkpoint_callback = CheckpointCallback(save_freq=steps, save_path="logs/" + name, name_prefix=name)
 
     if training:
-        # Set environment for MO Q-Learning to use multi-objective Q environment
+        # Set environment for MO Q-Learning to use multi-objective environment
         if alg == 'mo_q_learning' and goal == 'cost_latency_Q':
-            # Force use of OnlineBoutiqueMOQ environment for MOQLearning
-            env = OnlineBoutiqueMOQ(k8s=k8s, goal_reward='cost_latency', waiting_period=0.3, objective_weights=[0.5, 0.5])
-            print(f"✅ Using OnlineBoutiqueMOQ Environment for {alg} with goal {goal}")
+            # Force use of multi-objective environment
+            env = OnlineBoutiqueMO(k8s=k8s, goal_reward='cost_latency', waiting_period=0.3, objective_weights=[0.5, 0.5])
+            print(f"✅ Using Multi-Objective Environment for {alg} with goal {goal}")
         
         if loading:  # resume training
             model = get_load_model(alg, tensorboard_log, load_path)

@@ -20,7 +20,7 @@ def test_model(model, env, n_episodes, n_steps, smoothing_window, fig_name):
                 reward_sum = 0
                 obs = env.reset()
                 break
-
+    print()
     env.close()
 
     # Free memory
