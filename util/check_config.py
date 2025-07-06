@@ -17,6 +17,12 @@ KIALI_SERVICE_NAME = "kiali"
 KIALI_NAMESPACE = "istio-system"
 KIALI_LOCAL_PORT = 20001
 KIALI_TARGET_PORT = 20001
+
+# Kubernetes Dashboard configuration
+K8S_DASHBOARD_NAMESPACE = "kubernetes-dashboard"
+K8S_DASHBOARD_SERVICE_NAME = "kubernetes-dashboard"
+K8S_DASHBOARD_LOCAL_PORT = 8443
+K8S_DASHBOARD_TARGET_PORT = 8443
 # Additional services to check and port-forward
 SERVICES_TO_FORWARD = {
     "prometheus": {
@@ -216,6 +222,49 @@ def start_prometheus_port_forward():
         print(f"[✗] Failed to start Prometheus port-forward: {e}")
         return None
 
+def check_k8s_dashboard_service():
+    """Check if Kubernetes Dashboard service is available"""
+    print("\n[🖥️] Checking Kubernetes Dashboard service:")
+    v1 = client.CoreV1Api()
+    try:
+        svc = v1.read_namespaced_service(K8S_DASHBOARD_SERVICE_NAME, K8S_DASHBOARD_NAMESPACE)
+        print(f"[✓] Found Kubernetes Dashboard service '{K8S_DASHBOARD_SERVICE_NAME}' in namespace '{K8S_DASHBOARD_NAMESPACE}'")
+        
+        # Also check if Dashboard pod is running
+        pods = v1.list_namespaced_pod(namespace=K8S_DASHBOARD_NAMESPACE).items
+        dashboard_pod = next((pod for pod in pods if "kubernetes-dashboard" in pod.metadata.name), None)
+        if dashboard_pod and dashboard_pod.status.phase == "Running":
+            print(f"[✓] Kubernetes Dashboard pod is running")
+        else:
+            print(f"[⚠️] Kubernetes Dashboard service found but pod may not be running")
+        
+        return True
+    except ApiException as e:
+        if e.status == 404:
+            print(f"[✗] Kubernetes Dashboard service '{K8S_DASHBOARD_SERVICE_NAME}' not found in namespace '{K8S_DASHBOARD_NAMESPACE}'")
+            print("    💡 To install Kubernetes Dashboard:")
+            print("    💡 kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml")
+        else:
+            print(f"[✗] Error checking Kubernetes Dashboard service: {e}")
+        return False
+
+def start_k8s_dashboard_port_forward():
+    """Start port forwarding for Kubernetes Dashboard"""
+    print(f"\n[🚀] Starting Kubernetes Dashboard port-forward...")
+    try:
+        proc = start_port_forward(
+            K8S_DASHBOARD_NAMESPACE,
+            K8S_DASHBOARD_SERVICE_NAME,
+            K8S_DASHBOARD_LOCAL_PORT,
+            K8S_DASHBOARD_TARGET_PORT
+        )
+        print(f"[✓] Kubernetes Dashboard available at: https://localhost:{K8S_DASHBOARD_LOCAL_PORT}")
+        print("    🔐 Note: Dashboard uses HTTPS and requires authentication token")
+        print("    💡 Get token with: kubectl -n kubernetes-dashboard create token kubernetes-dashboard")
+        return proc
+    except Exception as e:
+        print(f"[✗] Failed to start Kubernetes Dashboard port-forward: {e}")
+        return None
 def stop_port_forward(proc, service_name):
     """Stop a specific port-forward process"""
     try:
@@ -230,9 +279,9 @@ def stop_port_forward(proc, service_name):
 # ...existing code...
 
 def main():
-    """Main function to test Kiali and Prometheus functionality"""
-    print("🔧 Kubernetes Cluster Checker - Kiali & Prometheus Test")
-    print("=" * 60)
+    """Main function to test Kiali, Prometheus and Dashboard functionality"""
+    print("🔧 Kubernetes Cluster Checker - Kiali, Prometheus & Dashboard Test")
+    print("=" * 70)
     
     # Load kubeconfig
     load_kube_config()
@@ -247,6 +296,7 @@ def main():
     # Check services
     kiali_available = check_kiali_service()
     prometheus_available = check_prometheus_service()
+    dashboard_available = check_k8s_dashboard_service()
     
     # Manage port-forwards
     active_processes = {}
@@ -265,12 +315,21 @@ def main():
             if prometheus_proc:
                 active_processes['prometheus'] = prometheus_proc
     
+    if dashboard_available:
+        response = input(f"\nStart Kubernetes Dashboard port-forward on localhost:{K8S_DASHBOARD_LOCAL_PORT}? (y/N): ")
+        if response.lower() == 'y':
+            dashboard_proc = start_k8s_dashboard_port_forward()
+            if dashboard_proc:
+                active_processes['dashboard'] = dashboard_proc
+    
     if active_processes:
         print(f"\n[ℹ️] Active services:")
         if 'kiali' in active_processes:
             print(f"   • Kiali: http://localhost:{KIALI_LOCAL_PORT}")
         if 'prometheus' in active_processes:
             print(f"   • Prometheus: http://localhost:{PROMETHEUS_PORT}")
+        if 'dashboard' in active_processes:
+            print(f"   • Kubernetes Dashboard: https://localhost:{K8S_DASHBOARD_LOCAL_PORT}")
         
         try:
             print("\n[ℹ️] Press Ctrl+C to stop all port-forwards...")
@@ -282,27 +341,6 @@ def main():
             print("[👋] Cleanup complete!")
     else:
         print("\n[ℹ️] No services are available or started.")
-
-    # Check Prometheus
-    prometheus_available = check_prometheus_service()
-    
-    if prometheus_available:
-        # Ask user if they want to start Prometheus port-forward
-        response = input(f"\nStart Prometheus port-forward on localhost:{PROMETHEUS_PORT}? (y/N): ")
-        if response.lower() == 'y':
-            prometheus_proc = start_prometheus_port_forward()
-            
-            if prometheus_proc:
-                try:
-                    print(f"\n[ℹ️] Prometheus is running at http://localhost:{PROMETHEUS_PORT}")
-                    print("[ℹ️] Press Ctrl+C to stop port-forward...")
-                    signal.pause()
-                except KeyboardInterrupt:
-                    print("\n[🛑] Stopping Prometheus port-forward...")
-                    stop_port_forward(prometheus_proc, "Prometheus")
-                    print("[👋] Cleanup complete!")
-    else:
-        print("\n[ℹ️] Prometheus is not available. Install it first to proceed.")
 
 if __name__ == "__main__":
     main()
