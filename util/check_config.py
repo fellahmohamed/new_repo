@@ -118,15 +118,30 @@ def check_istio_pods():
         print(f"[✗] Error checking Istio pods: {e}")
 
 def check_prometheus_service():
+    """Check if Prometheus service is available"""
+    print("\n[📊] Checking Prometheus service:")
     v1 = client.CoreV1Api()
     try:
         svc = v1.read_namespaced_service(PROMETHEUS_SERVICE_NAME, PROMETHEUS_NAMESPACE)
         print(f"[✓] Found Prometheus service '{PROMETHEUS_SERVICE_NAME}' in namespace '{PROMETHEUS_NAMESPACE}'")
+        
+        # Also check if Prometheus pod is running
+        pods = v1.list_namespaced_pod(namespace=PROMETHEUS_NAMESPACE).items
+        prometheus_pod = next((pod for pod in pods if "prometheus-kube-prometheus-prometheus" in pod.metadata.name), None)
+        if prometheus_pod and prometheus_pod.status.phase == "Running":
+            print(f"[✓] Prometheus pod is running")
+        else:
+            print(f"[⚠️] Prometheus service found but pod may not be running")
+        
+        return True
     except ApiException as e:
         if e.status == 404:
             print(f"[✗] Prometheus service '{PROMETHEUS_SERVICE_NAME}' not found in namespace '{PROMETHEUS_NAMESPACE}'")
+            print("    💡 To install Prometheus: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts")
+            print("    💡 helm install prometheus prometheus-community/kube-prometheus-stack -n monitoring --create-namespace")
         else:
             print(f"[✗] Error checking Prometheus service: {e}")
+        return False
 
 def start_port_forward(namespace, service_name, local_port, target_port, address="0.0.0.0"):
     print(f"[*] Starting port-forward: {address}:{local_port} -> {service_name}:{target_port}")
@@ -184,6 +199,23 @@ def start_kiali_port_forward():
         print(f"[✗] Failed to start Kiali port-forward: {e}")
         return None
 
+def start_prometheus_port_forward():
+    """Start port forwarding for Prometheus"""
+    print(f"\n[🚀] Starting Prometheus port-forward...")
+    try:
+        proc = start_port_forward(
+            PROMETHEUS_NAMESPACE,
+            PROMETHEUS_SERVICE_NAME,
+            PROMETHEUS_PORT,
+            PROMETHEUS_PORT
+        )
+        print(f"[✓] Prometheus available at: http://localhost:{PROMETHEUS_PORT}")
+        print("    📊 Use Prometheus to query metrics and monitor your cluster")
+        return proc
+    except Exception as e:
+        print(f"[✗] Failed to start Prometheus port-forward: {e}")
+        return None
+
 def stop_port_forward(proc, service_name):
     """Stop a specific port-forward process"""
     try:
@@ -198,9 +230,9 @@ def stop_port_forward(proc, service_name):
 # ...existing code...
 
 def main():
-    """Main function to test Kiali functionality"""
-    print("🔧 Kubernetes Cluster Checker - Kiali Test")
-    print("=" * 50)
+    """Main function to test Kiali and Prometheus functionality"""
+    print("🔧 Kubernetes Cluster Checker - Kiali & Prometheus Test")
+    print("=" * 60)
     
     # Load kubeconfig
     load_kube_config()
@@ -212,26 +244,65 @@ def main():
     print("\n[🔍] Checking Istio components:")
     check_istio_pods()
     
-    # Check Kiali
+    # Check services
     kiali_available = check_kiali_service()
+    prometheus_available = check_prometheus_service()
+    
+    # Manage port-forwards
+    active_processes = {}
     
     if kiali_available:
-        # Ask user if they want to start Kiali port-forward
         response = input(f"\nStart Kiali port-forward on localhost:{KIALI_LOCAL_PORT}? (y/N): ")
         if response.lower() == 'y':
             kiali_proc = start_kiali_port_forward()
-            
             if kiali_proc:
+                active_processes['kiali'] = kiali_proc
+    
+    if prometheus_available:
+        response = input(f"\nStart Prometheus port-forward on localhost:{PROMETHEUS_PORT}? (y/N): ")
+        if response.lower() == 'y':
+            prometheus_proc = start_prometheus_port_forward()
+            if prometheus_proc:
+                active_processes['prometheus'] = prometheus_proc
+    
+    if active_processes:
+        print(f"\n[ℹ️] Active services:")
+        if 'kiali' in active_processes:
+            print(f"   • Kiali: http://localhost:{KIALI_LOCAL_PORT}")
+        if 'prometheus' in active_processes:
+            print(f"   • Prometheus: http://localhost:{PROMETHEUS_PORT}")
+        
+        try:
+            print("\n[ℹ️] Press Ctrl+C to stop all port-forwards...")
+            signal.pause()
+        except KeyboardInterrupt:
+            print("\n[🛑] Stopping all port-forwards...")
+            for service_name, proc in active_processes.items():
+                stop_port_forward(proc, service_name.title())
+            print("[👋] Cleanup complete!")
+    else:
+        print("\n[ℹ️] No services are available or started.")
+
+    # Check Prometheus
+    prometheus_available = check_prometheus_service()
+    
+    if prometheus_available:
+        # Ask user if they want to start Prometheus port-forward
+        response = input(f"\nStart Prometheus port-forward on localhost:{PROMETHEUS_PORT}? (y/N): ")
+        if response.lower() == 'y':
+            prometheus_proc = start_prometheus_port_forward()
+            
+            if prometheus_proc:
                 try:
-                    print(f"\n[ℹ️] Kiali is running at http://localhost:{KIALI_LOCAL_PORT}")
+                    print(f"\n[ℹ️] Prometheus is running at http://localhost:{PROMETHEUS_PORT}")
                     print("[ℹ️] Press Ctrl+C to stop port-forward...")
                     signal.pause()
                 except KeyboardInterrupt:
-                    print("\n[🛑] Stopping Kiali port-forward...")
-                    stop_port_forward(kiali_proc, "Kiali")
+                    print("\n[🛑] Stopping Prometheus port-forward...")
+                    stop_port_forward(prometheus_proc, "Prometheus")
                     print("[👋] Cleanup complete!")
     else:
-        print("\n[ℹ️] Kiali is not available. Install it first to proceed.")
+        print("\n[ℹ️] Prometheus is not available. Install it first to proceed.")
 
 if __name__ == "__main__":
     main()
