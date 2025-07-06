@@ -16,6 +16,7 @@ REQUIRED_ISTIO_PODS = ["istiod", "istio-ingressgateway"]
 KIALI_SERVICE_NAME = "kiali"
 KIALI_NAMESPACE = "istio-system"
 KIALI_LOCAL_PORT = 20001
+KIALI_TARGET_PORT = 20001
 # Additional services to check and port-forward
 SERVICES_TO_FORWARD = {
     "prometheus": {
