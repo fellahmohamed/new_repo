@@ -251,12 +251,26 @@ def check_k8s_dashboard_service():
             
             if service_type == "NodePort":
                 # Find the NodePort
+                node_port = None
                 for port in svc.spec.ports:
                     if port.node_port:
+                        node_port = port.node_port
                         print(f"[ℹ️] Dashboard available via NodePort: <VM_IP>:{port.node_port}")
-                        print(f"[ℹ️] Example: https://your-vm-ip:{port.node_port}")
+                        
+                        # Try to get VM IP automatically
+                        vm_ip = get_vm_ip()
+                        if vm_ip:
+                            dashboard_url = f"https://{vm_ip}:{port.node_port}"
+                            print(f"[ℹ️] Auto-detected URL: {dashboard_url}")
+                        else:
+                            print(f"[ℹ️] Example: https://your-vm-ip:{port.node_port}")
                         print("    🔐 Note: You'll need to use your VM's external IP address")
                         break
+                
+                # Store node_port for later use
+                if node_port:
+                    global K8S_DASHBOARD_TARGET_PORT
+                    K8S_DASHBOARD_TARGET_PORT = node_port
             elif service_type == "LoadBalancer":
                 # Check for external IP
                 if svc.status.load_balancer.ingress:
@@ -337,6 +351,29 @@ def list_all_services():
 
 # ...existing code...
 
+def get_vm_ip():
+    """Try to get the VM's IP address"""
+    try:
+        import socket
+        # Try to connect to a remote address to get local IP
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            return local_ip
+    except:
+        return None
+
+def open_dashboard_in_browser(url):
+    """Open the dashboard URL in the default browser"""
+    try:
+        import webbrowser
+        print(f"[🚀] Opening dashboard in browser: {url}")
+        webbrowser.open(url)
+        return True
+    except Exception as e:
+        print(f"[⚠️] Could not open browser automatically: {e}")
+        return False
+
 def main():
     """Main function to test Kiali, Prometheus and Dashboard functionality"""
     print("🔧 Kubernetes Cluster Checker - Kiali, Prometheus & Dashboard Test")
@@ -387,6 +424,22 @@ def main():
             dashboard_proc = start_k8s_dashboard_port_forward()
             if dashboard_proc:
                 active_processes['dashboard'] = dashboard_proc
+    elif dashboard_available and dashboard_service_type == "NodePort":
+        print(f"\n[ℹ️] Dashboard is accessible directly via NodePort - no port-forwarding needed")
+        # Offer to open dashboard in browser
+        vm_ip = get_vm_ip()
+        if vm_ip:
+            dashboard_url = f"https://{vm_ip}:{K8S_DASHBOARD_TARGET_PORT}"
+            response = input(f"\nOpen Kubernetes Dashboard in browser ({dashboard_url})? (y/N): ")
+            if response.lower() == 'y':
+                if open_dashboard_in_browser(dashboard_url):
+                    print(f"[✓] Dashboard opened in browser")
+                    print(f"[ℹ️] You'll need to get a token with:")
+                    print(f"[ℹ️] kubectl -n {K8S_DASHBOARD_NAMESPACE} create token kubernetes-dashboard")
+                else:
+                    print(f"[ℹ️] Please manually open: {dashboard_url}")
+        else:
+            print(f"[ℹ️] Could not auto-detect VM IP. Please access dashboard manually.")
     elif dashboard_available:
         print(f"\n[ℹ️] Dashboard is accessible directly via {dashboard_service_type} - no port-forwarding needed")
     
