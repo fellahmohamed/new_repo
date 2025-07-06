@@ -226,27 +226,44 @@ def check_k8s_dashboard_service():
     """Check if Kubernetes Dashboard service is available"""
     print("\n[🖥️] Checking Kubernetes Dashboard service:")
     v1 = client.CoreV1Api()
-    try:
-        svc = v1.read_namespaced_service(K8S_DASHBOARD_SERVICE_NAME, K8S_DASHBOARD_NAMESPACE)
-        print(f"[✓] Found Kubernetes Dashboard service '{K8S_DASHBOARD_SERVICE_NAME}' in namespace '{K8S_DASHBOARD_NAMESPACE}'")
-        
-        # Also check if Dashboard pod is running
-        pods = v1.list_namespaced_pod(namespace=K8S_DASHBOARD_NAMESPACE).items
-        dashboard_pod = next((pod for pod in pods if "kubernetes-dashboard" in pod.metadata.name), None)
-        if dashboard_pod and dashboard_pod.status.phase == "Running":
-            print(f"[✓] Kubernetes Dashboard pod is running")
-        else:
-            print(f"[⚠️] Kubernetes Dashboard service found but pod may not be running")
-        
-        return True
-    except ApiException as e:
-        if e.status == 404:
-            print(f"[✗] Kubernetes Dashboard service '{K8S_DASHBOARD_SERVICE_NAME}' not found in namespace '{K8S_DASHBOARD_NAMESPACE}'")
-            print("    💡 To install Kubernetes Dashboard:")
-            print("    💡 kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml")
-        else:
-            print(f"[✗] Error checking Kubernetes Dashboard service: {e}")
-        return False
+    
+    # Try different possible service names and namespaces
+    possible_configs = [
+        ("kubernetes-dashboard", "kubernetes-dashboard"),
+        ("kubernetes-dashboard", "kube-system"),
+        ("dashboard", "kubernetes-dashboard"),
+        ("kubernetes-dashboard-web", "kubernetes-dashboard")
+    ]
+    
+    for service_name, namespace in possible_configs:
+        try:
+            svc = v1.read_namespaced_service(service_name, namespace)
+            print(f"[✓] Found Kubernetes Dashboard service '{service_name}' in namespace '{namespace}'")
+            
+            # Update global config with found values
+            global K8S_DASHBOARD_SERVICE_NAME, K8S_DASHBOARD_NAMESPACE
+            K8S_DASHBOARD_SERVICE_NAME = service_name
+            K8S_DASHBOARD_NAMESPACE = namespace
+            
+            # Also check if Dashboard pod is running
+            pods = v1.list_namespaced_pod(namespace=namespace).items
+            dashboard_pod = next((pod for pod in pods if "dashboard" in pod.metadata.name), None)
+            if dashboard_pod and dashboard_pod.status.phase == "Running":
+                print(f"[✓] Kubernetes Dashboard pod is running")
+            else:
+                print(f"[⚠️] Kubernetes Dashboard service found but pod may not be running")
+            
+            return True
+        except ApiException:
+            continue
+    
+    # If we get here, none of the configurations worked
+    print(f"[✗] Kubernetes Dashboard not found in any expected location")
+    print("    💡 To install Kubernetes Dashboard:")
+    print("    💡 kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml")
+    print("    💡 Alternative: Check if dashboard is installed with different name/namespace")
+    print("    💡 Run: kubectl get svc --all-namespaces | grep dashboard")
+    return False
 
 def start_k8s_dashboard_port_forward():
     """Start port forwarding for Kubernetes Dashboard"""
@@ -274,6 +291,20 @@ def stop_port_forward(proc, service_name):
     except Exception as e:
         print(f"[✗] Error stopping {service_name} port-forward: {e}")
 
+def list_all_services():
+    """List all services across all namespaces for debugging"""
+    print("\n[🔍] Listing all services (for debugging):")
+    v1 = client.CoreV1Api()
+    try:
+        services = v1.list_service_for_all_namespaces().items
+        for svc in services:
+            ns = svc.metadata.namespace
+            name = svc.metadata.name
+            type_str = svc.spec.type
+            ports = [f"{p.port}:{p.target_port}" for p in svc.spec.ports] if svc.spec.ports else ["No ports"]
+            print(f"   - [{ns}] {name} | Type: {type_str} | Ports: {', '.join(ports)}")
+    except Exception as e:
+        print(f"[✗] Failed to list services: {e}")
 
 
 # ...existing code...
@@ -297,6 +328,12 @@ def main():
     kiali_available = check_kiali_service()
     prometheus_available = check_prometheus_service()
     dashboard_available = check_k8s_dashboard_service()
+    
+    # If dashboard not found, offer to list all services for debugging
+    if not dashboard_available:
+        response = input("\nDashboard not found. List all services for debugging? (y/N): ")
+        if response.lower() == 'y':
+            list_all_services()
     
     # Manage port-forwards
     active_processes = {}
