@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locust-standalone
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locust
+  template:
+    metadata:
+      labels:
+        app: locust
+    spec:
+      containers:
+      - name: locust
+        image: jpedro1992/online_boutique_flow_generator_slim:autoscaling
+        command:
+          - tail
+        args:
+          - -f
+          - /dev/null
+
+        ports:
+        - containerPort: 8089
